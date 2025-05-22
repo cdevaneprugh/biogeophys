@@ -345,8 +345,10 @@ contains
          frost_table      =>    soilhydrology_inst%frost_table_col  , & ! Input:  [real(r8) (:)   ]  frost table depth (m)
          zwt              =>    soilhydrology_inst%zwt_col          , & ! Input:  [real(r8) (:)   ]  water table depth (m)
          zwt_perched      =>    soilhydrology_inst%zwt_perched_col  , & ! Input:  [real(r8) (:)   ]  perched water table depth (m)
-
          wtfact           =>    soilstate_inst%wtfact_col             & ! Input:  [real(r8) (:)   ]  maximum saturated fraction for a gridcell
+         ! Variables added to the associate list
+         !h2osfc      => soilstate_inst%h2osfc_col          , &
+         !fff         => soilhydrology_inst%fff_col           &
          )
 
     do fc = 1, num_hydrologyc
