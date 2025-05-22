@@ -18,11 +18,8 @@ module SaturatedExcessRunoffMod
   use landunit_varcon  , only : istcrop
   use ColumnType   , only : column_type
   use SoilHydrologyType, only : soilhydrology_type
-
-  ! ADDED - LIKELY CAUSING CIRCULAR DEPENDENCY
-  use SoilHydrologyMod, only : h2osfc
-  !
-
+  !use SoilHydrologyMod, only : h2osfc ! CAUSING CIRCULAR DEPENDENCY
+  use WaterStateBulkType , only : waterstatebulk_type ! Need to use to access h2osfc
   use SoilStateType, only : soilstate_type
   use WaterFluxBulkType, only : waterfluxbulk_type
 
@@ -206,7 +203,7 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine SaturatedExcessRunoff (this, bounds, num_hydrologyc, filter_hydrologyc, &
-       lun, col, soilhydrology_inst, soilstate_inst, waterfluxbulk_inst)
+       lun, col, soilhydrology_inst, soilstate_inst, waterfluxbulk_inst, waterstatebulk_inst) ! Pass waterstatebulk_inst
     !
     ! !DESCRIPTION:
     ! Calculate surface runoff due to saturated surface
@@ -222,7 +219,8 @@ contains
     type(column_type)        , intent(in)    :: col
     type(soilhydrology_type) , intent(inout) :: soilhydrology_inst
     type(soilstate_type)     , intent(in)    :: soilstate_inst
-    type(waterfluxbulk_type)     , intent(inout) :: waterfluxbulk_inst
+    type(waterfluxbulk_type) , intent(inout) :: waterfluxbulk_inst
+    type(waterstatebulk_type), intent(in)    :: waterstatebulk_inst  ! Declare variable, specify type, and intent
     !
     ! !LOCAL VARIABLES:
     integer  :: fc, c, l
@@ -249,7 +247,7 @@ contains
     select case (this%fsat_method)
     case (FSAT_METHOD_TOPMODEL)
        call this%ComputeFsatTopmodel(bounds, num_hydrologyc, filter_hydrologyc, &
-            soilhydrology_inst, soilstate_inst, &
+            soilhydrology_inst, soilstate_inst, waterstatebulk_inst, &
             fsat = fsat(bounds%begc:bounds%endc))
     case (FSAT_METHOD_VIC)
        call this%ComputeFsatVic(bounds, num_hydrologyc, filter_hydrologyc, &
@@ -316,7 +314,7 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine ComputeFsatTopmodel(bounds, num_hydrologyc, filter_hydrologyc, &
-       soilhydrology_inst, soilstate_inst, fsat)
+       soilhydrology_inst, soilstate_inst, waterstatebulk_inst, fsat) ! pass waterstatebulk_inst to subroutine
     !
     ! !DESCRIPTION:
     ! Compute fsat using the TOPModel-based parameterization
@@ -330,6 +328,7 @@ contains
     type(soilhydrology_type) , intent(in) :: soilhydrology_inst
     type(soilstate_type), intent(in) :: soilstate_inst
     real(r8), intent(inout) :: fsat( bounds%begc: ) ! fractional area with water table at surface
+    type(waterstatebulk_type), intent(in) :: waterstatebulk_inst ! tells the compiler we're passing the full water state structure in
     !
     ! !LOCAL VARIABLES:
     integer  :: fc, c
@@ -345,11 +344,9 @@ contains
          frost_table      =>    soilhydrology_inst%frost_table_col  , & ! Input:  [real(r8) (:)   ]  frost table depth (m)
          zwt              =>    soilhydrology_inst%zwt_col          , & ! Input:  [real(r8) (:)   ]  water table depth (m)
          zwt_perched      =>    soilhydrology_inst%zwt_perched_col  , & ! Input:  [real(r8) (:)   ]  perched water table depth (m)
-         wtfact           =>    soilstate_inst%wtfact_col             & ! Input:  [real(r8) (:)   ]  maximum saturated fraction for a gridcell
-         ! Variables added to the associate list
-         !h2osfc      => soilstate_inst%h2osfc_col          , &
-         !fff         => soilhydrology_inst%fff_col           &
-         )
+         h2osfc           =>    waterstatebulk_inst%h2osfc_col / 1000._r8 , &  ! Surface water depth. Convert mm --> m
+         wtfact           =>    soilstate_inst%wtfact_col             ) ! Input:  [real(r8) (:)   ]  maximum saturated fraction for a gridcell
+
 
     do fc = 1, num_hydrologyc
        c = filter_hydrologyc(fc)
@@ -363,21 +360,21 @@ contains
 
        if (frost_table(c) > zwt(c)) then
           if (c .eq. 1) then
-             fsat(c) = 1.0 * exp(-3.0_r8 / humhol_ht * (zwt(c)))   ! at 30cm, hummock saturated at 5%
+             fsat(c) = 1.0 * exp(-3.0_r8 / humhol_ht * (zwt(c))) 
           elseif (c .eq. 2) then
              fsat(c) = min(1.0 * exp(-3.0_r8 / humhol_ht * (zwt(c) - h2osfc(c) / 1000.0 + humhol_ht / 2.0_r8)), 1._r8)
           end if
 
        elseif (frost_table(c) > zwt_perched(c)) then
           if (c .eq. 1) then
-             fsat(c) = 1.0 * exp(-3.0_r8 / humhol_ht * (zwt_perched(c)))   ! at 30cm, hummock saturated at 5%
+             fsat(c) = 1.0 * exp(-3.0_r8 / humhol_ht * (zwt_perched(c)))
           elseif (c .eq. 2) then
              fsat(c) = min(1.0 * exp(-3.0_r8 / humhol_ht * (zwt_perched(c) - h2osfc(c) / 1000.0 + humhol_ht / 2.0_r8)), 1._r8)
           end if
 
        else
           if (c .eq. 1) then
-             fsat(c) = 1.0 * exp(-3.0_r8 / humhol_ht * (zwt(c)))   ! at 30cm, hummock saturated at 5%
+             fsat(c) = 1.0 * exp(-3.0_r8 / humhol_ht * (zwt(c)))
           elseif (c .eq. 2) then
              fsat(c) = min(1.0 * exp(-3.0_r8 / humhol_ht * (zwt(c) - h2osfc(c) / 1000.0 + humhol_ht / 2.0_r8)), 1._r8)
           end if
