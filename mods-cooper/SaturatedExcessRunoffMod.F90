@@ -344,7 +344,7 @@ contains
          frost_table      =>    soilhydrology_inst%frost_table_col  , & ! Input:  [real(r8) (:)   ]  frost table depth (m)
          zwt              =>    soilhydrology_inst%zwt_col          , & ! Input:  [real(r8) (:)   ]  water table depth (m)
          zwt_perched      =>    soilhydrology_inst%zwt_perched_col  , & ! Input:  [real(r8) (:)   ]  perched water table depth (m)
-         h2osfc           =>    waterstatebulk_inst%h2osfc_col / 1000._r8 , &  ! Surface water depth. Convert mm --> m
+         h2osfc     =>    waterstatebulk_inst%h2osfc_col / 1000._r8 , & ! Input:  [real(r8) (:)   ]  surface water (mm) | [mm -> m]
          wtfact           =>    soilstate_inst%wtfact_col             ) ! Input:  [real(r8) (:)   ]  maximum saturated fraction for a gridcell
 
 
